@@ -1,61 +1,109 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as gcp from "@pulumi/gcp";
 
+// Get the project based on ID from config
+const project = gcp.organizations.getProjectOutput({})
+const defaultServiceAccount = gcp.compute.getDefaultServiceAccountOutput({});
+
 // Create a GCS bucket to store Vault's data
 const storageBucket = new gcp.storage.Bucket("vault-data", {
     location: "US",
 });
 
-// Create a KMS key for Vault's encryption keys
-const keyRing = new gcp.kms.KeyRing("keyring", {
+// Create a KMS keyring and key for Vault's encryption keys
+const keyRing = new gcp.kms.KeyRing("vault-server", {
     location: "global",
 });
-
-const kmsKey = new gcp.kms.CryptoKey("vault-key", {
+const kmsKey = new gcp.kms.CryptoKey("seal", {
     keyRing: keyRing.id,
+    purpose: "ENCRYPT_DECRYPT",
     rotationPeriod: "100000s",
 });
 
-// Docker image for Vault
-const image = "vault:1.13.3";
-
-// Create a Cloud Run service running Vault
-const vault = new gcp.cloudrun.Service("vault", {
-    location: "us-east1",
-    template: {
-        spec: {
-            containers: [
-                {
-                    image,
-                    envs: [
-                        { name: "GOOGLE_PROJECT", value: gcp.config.project },
-                        { name: "VAULT_ADDR", value: "http://0.0.0.0:8200" },
-                        { name: "VAULT_LOCAL_CONFIG", value: pulumi.interpolate `
-                            {
-                                "storage": {
-                                    "gcs": {"bucket":"${storageBucket.name}"}
-                                },
-                                "seal": {
-                                    "gcpckms":{
-                                        "project":"${project.projectId}",
-                                        "region":"global",
-                                        "key_ring":"${keyRing.name}",
-                                        "crypto_key":"${kmsKey.name}"
-                                    }
-                                }
-                            }` },
-                    ],
-                },
-            ],
-        },
-    },
-    traffics: [
+// Allow the service account permissions for the KMS key
+const adminPolicy = gcp.organizations.getIAMPolicyOutput({
+    bindings: defaultServiceAccount.email.apply(email => [
         {
-            percent: 100,
-            latestRevision: true,
+            members: [`serviceAccount:${email}`],
+            role: "roles/cloudkms.cryptoKeyEncrypterDecrypter",
         },
-    ],
+    ]),
+});
+const cryptoKey = new gcp.kms.CryptoKeyIAMPolicy("cryptoKey", {
+    cryptoKeyId: kmsKey.id,
+    policyData: adminPolicy.policyData,
 });
 
-export const projectLink = project.selfLink;
-export const vaultUrl = vault.statuses[0].url;
+// Docker image for Vault
+const image = "hashicorp/vault:1.15";
+
+// Create a Cloud Run service running Vault
+const vault = new gcp.cloudrunv2.Service("vault", {
+    description: "HashiCorp Vault Service",
+    ingress: "INGRESS_TRAFFIC_ALL",
+    location: gcp.config.region,
+    template: {
+        containers: [
+            {
+                image,
+                commands: ["/usr/local/bin/docker-entrypoint.sh", "server"],
+                ports: [{
+                    containerPort: 8200,
+                    name: "http1",
+                }],
+                resources: {
+                    cpuIdle: true,
+                    limits: {
+                        cpu: "1",
+                        memory: "256Mi",
+                    },
+                },
+                startupProbe: {
+                    httpGet: {
+                        path: "/",
+                        port: 8200,
+                    },
+                },
+                envs: [
+                    { name: "GOOGLE_PROJECT", value: gcp.config.project },
+                    { name: "SKIP_SETCAP", value: "1" },
+                    { name: "VAULT_LOCAL_CONFIG", value: pulumi.interpolate `
+                        {
+                            "ui": true,
+                            "disable_mlock": true,
+                            "disable_clustering": true,
+                            "listener": {
+                                "tcp": {
+                                    "address": "0.0.0.0:8200",
+                                    "tls_disable": true
+                                },
+                            },
+                            "storage": {
+                                "gcs": {"bucket":"${storageBucket.name}"}
+                            },
+                            "seal": {
+                                "gcpckms":{
+                                    "project":"${project.projectId}",
+                                    "region":"global",
+                                    "key_ring":"${keyRing.name}",
+                                    "crypto_key":"${kmsKey.name}"
+                                }
+                            }
+                        }`
+                    },
+                ],
+            },
+        ],
+        scaling: {
+            minInstanceCount: 0,
+            maxInstanceCount: 1,
+        }
+    },
+    labels: {
+        "service": "vault",
+    },
+}, {
+    deleteBeforeReplace: true
+});
+
+export const vaultUrl = vault.uri //pulumi.interpolate`${vault.uri}`
