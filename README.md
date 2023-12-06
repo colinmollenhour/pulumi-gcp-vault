@@ -1,8 +1,9 @@
 # Serverless Vault with Pulumi and Cloud Run
 
+[![Deploy](https://get.pulumi.com/new/button.svg)](https://app.pulumi.com/new?template=https://github.com/colinmollenhour/pulumi-gcp-vault)
+
 This is a Pulumi stack to run Hashicorp Vault based on the [Serverless Vault with Cloud Run](https://github.com/kelseyhightower/serverless-vault-with-cloud-run)
-tutorial by [@kelseyhightower](https://github.com/kelseyhightower). The goal is to have a Vault instance that
-is:
+tutorial by [@kelseyhightower](https://github.com/kelseyhightower). The goal is to have a Vault instance that is:
 
 - Extremely reliable
 - Zero maintenance
@@ -11,16 +12,23 @@ is:
 - Dirt cheap!
 
 Stack:
-- Hashicorp Vault using the official Docker images running on Google Cloud Run
+- Google Cloud Run is used to run Hashicorp Vault using the official Docker images
 - Google Cloud Storage is used as a storage and logging backend
 - Google Key Management is used to unseal the vault automatically
+- A Domain Mapping is optionally used to set up your own custom domain
 - Everything is created automatically with Pulumi (similar to Terraform)
 
 This is my first Pulumi project, so I'm sure it could be improved. Please feel free to contribute improvements as pull requests!
 
 # Prerequisites
 
+If using Pulumi Cloud just make sure your GCP account has a billing account (step 5) and required APIs enabled (step 6).
+Otherwise, you can deploy this project using Pulumi CLI locally with just `Node`, `pulumi` and `gcloud`.
+
 1. Clone this repository and cd into the root directory
+   ```shell
+   git clone https://github.com/colinmollenhour/pulumi-gcp-vault && cd pulumi-gcp-vault
+   ```
 2. Install Node (example for `pnpm` - `npm` works, too)
    ```shell
    curl -fsSL https://get.pnpm.io/install.sh | sh -
@@ -33,7 +41,7 @@ This is my first Pulumi project, so I'm sure it could be improved. Please feel f
    pulumi login --local
    pulumi stack select dev
    ```
-4. Install gcloud CLI
+4. Install Google Cloud CLI
    ```shell
    curl https://sdk.cloud.google.com | bash
    gcloud init
@@ -60,7 +68,7 @@ This is my first Pulumi project, so I'm sure it could be improved. Please feel f
 
 1. Deploy the Vault service:
     ```shell
-    pulumi up
+    pulumi up  # If using Pulumi CLI
     export VAULT_ADDR=$(pulumi stack output vaultUrl)
     ```
 2. Initialize the Vault. Save the recovery key somewhere safe!!:

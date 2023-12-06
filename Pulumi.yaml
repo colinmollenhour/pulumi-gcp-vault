@@ -1,3 +1,17 @@
-name: vault
+name: ${PROJECT}
+description: ${DESCRIPTION}
 runtime: nodejs
-description: Hashicorp Vault on GCP
+
+template:
+  displayName: Hashicorp Vault on GCP
+  description: A TypeScript program to deploy Hashicorp Vault on Google Cloud Platform
+  config:
+    gcp:project:
+      description: The Google Cloud project to deploy into
+    gcp:region:
+      description: The Google Cloud region to deploy into
+      default: us-east1
+    vaultDomain:
+      description: The domain name to use for the vault service - must be a CNAME record to ghs.googlehosted.com (optional)
+  metadata:
+    cloud: gcp

@@ -2,6 +2,8 @@ import * as pulumi from "@pulumi/pulumi";
 import * as gcp from "@pulumi/gcp";
 
 // Get the project based on ID from config
+const config = new pulumi.Config()
+const vaultDomain = config.get('vaultDomain') // Optional
 const project = gcp.organizations.getProjectOutput({})
 const defaultServiceAccount = gcp.compute.getDefaultServiceAccountOutput({});
 
@@ -106,4 +108,20 @@ const vault = new gcp.cloudrunv2.Service("vault", {
     deleteBeforeReplace: true
 });
 
-export const vaultUrl = vault.uri //pulumi.interpolate`${vault.uri}`
+let _vaultUrl
+if (vaultDomain) {
+    const domainMapping = new gcp.cloudrun.DomainMapping("vault-domain", {
+        name: vaultDomain,
+        location: pulumi.interpolate`${gcp.config.region}`,
+        metadata: {
+            namespace: pulumi.interpolate`${project.projectId}`
+        },
+        spec: {
+            routeName: vault.uri.apply(uri => uri.replace('https://', ''))
+        }
+    })
+    _vaultUrl = `https://${vaultDomain}`
+} else {
+    _vaultUrl = vault.uri
+}
+export const vaultUrl = _vaultUrl
