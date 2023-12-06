@@ -76,7 +76,7 @@ Otherwise, you can deploy this project using Pulumi CLI locally with just `Node`
    curl -s -X PUT \
      ${VAULT_ADDR}/v1/sys/init \
      -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
-     --data @init.json
+     --data @vault-init.json
    ```
 4. Get the Vault health information:
    ```shell
