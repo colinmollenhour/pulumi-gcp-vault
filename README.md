@@ -88,14 +88,18 @@ Otherwise, you can deploy this project using Pulumi CLI locally with just `Node`
    ```shell
    vault status --header "Authorization=Bearer $(gcloud auth print-identity-token)"
    ```
-   At this point you will need to **allow unauthorized access** on your service to continue with the examples or else
-   always use `--header="Authorization=Bearer $(gcloud auth print-identity-token)"` with each `vault` command.
-
-5. Login with the root token received from the init step:
+5. At this point you will need to **allow unauthorized access** on your service to continue with the examples or else
+   always use `--header="Authorization=Bearer $(gcloud auth print-identity-token)"` with each `vault` command. To allow
+   public access, you can change the 'publicAccess config'
+   ```shell
+   pulumi config set publicAccess true
+   pulumi up
+   ```
+6. Login with the root token received from the init step:
    ```shell
    vault login
    ```
-6. And try storing a secret:
+7. And try storing a secret:
    ```shell
    vault secrets enable -version=2 -path=secret kv
    vault policy write my-policy - << EOF

@@ -13,5 +13,7 @@ template:
       default: us-east1
     vaultDomain:
       description: The domain name to use for the vault service - must be a CNAME record to ghs.googlehosted.com (optional)
+    publicAccess:
+      description: This should be set later after the Vault is initialized
   metadata:
     cloud: gcp

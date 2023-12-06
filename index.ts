@@ -108,6 +108,16 @@ const vault = new gcp.cloudrunv2.Service("vault", {
     deleteBeforeReplace: true
 })
 
+// Allow public unauthenticated access
+if (config.get('publicAccess')) {
+    new gcp.cloudrunv2.ServiceIamBinding('vault-invoker', {
+        role: 'roles/run.invoker',
+        members: ['allUsers'],
+        name: vault.name,
+        location: gcp.config.region,
+    });
+}
+
 let _vaultUrl
 if (vaultDomain) {
     const domainMapping = new gcp.cloudrun.DomainMapping("vault-domain", {
