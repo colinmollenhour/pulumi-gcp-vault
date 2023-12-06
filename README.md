@@ -22,39 +22,34 @@ This is my first Pulumi project, so I'm sure it could be improved. Please feel f
 
 # Prerequisites
 
-If using Pulumi Cloud just make sure your GCP account has a billing account (step 5) and required APIs enabled (step 6).
+If using Pulumi Cloud and you already have GCP setup for Deployments, just make sure your GCP account has the
+required APIs enabled (step 5).
 Otherwise, you can deploy this project using Pulumi CLI locally with just `Node`, `pulumi` and `gcloud`.
 
-1. Clone this repository and cd into the root directory
-   ```shell
-   git clone https://github.com/colinmollenhour/pulumi-gcp-vault && cd pulumi-gcp-vault
-   ```
-2. Install Node (example for `pnpm` - `npm` works, too)
+1. Install Node and dependencies
    ```shell
    curl -fsSL https://get.pnpm.io/install.sh | sh -
    pnpm env use --global lts
-   pnpm i
    ```
-3. Install Pulumi CLI
+2. Install Pulumi CLI
    ```shell
    curl -fsSL https://get.pulumi.com | sh
    pulumi login --local
-   pulumi stack select dev
    ```
-4. Install Google Cloud CLI
+3. Install Google Cloud CLI
    ```shell
    curl https://sdk.cloud.google.com | bash
    gcloud init
    gcloud auth application-default login
    gcloud config set project $(pulumi config get gcp:project)
    ```
-5. Create the gcloud project and assign a billing account if needed (can also be done [online](https://console.cloud.google.com/welcome)):
+4. Create the gcloud project and assign a billing account if needed (can also be done [online](https://console.cloud.google.com/welcome)):
    ```shell
    gcloud projects create $(pulumi config get gcp:project) [--folder=FOLDER_ID] [--name=NAME] [--organization=ORGANIZATION_ID]
    gcloud billing accounts list
    gcloud billing projects link $(pulumi config get gcp:project) --billing-account 0X0X0X-0X0X0X-0X0X0X
    ```
-6. Ensure the required APIs are enabled (Compute is needed to retrieve the default service account email):
+5. Ensure the required APIs are enabled (Compute is needed to retrieve the default service account email):
     ```shell
     gcloud services enable --project=$(pulumi config get gcp:project) --async \
       compute.googleapis.com \
@@ -66,19 +61,24 @@ Otherwise, you can deploy this project using Pulumi CLI locally with just `Node`
 
 # Deploying Vault
 
-1. Deploy the Vault service:
+1. Create a fresh directory for the project and create the stack from this repository as a template:
+   ```shell
+   mkdir vault && cd vault
+   pulumi new https://github.com/colinmollenhour/pulumi-gcp-vault
+   ```
+2. Deploy the new stack:
     ```shell
-    pulumi up  # If using Pulumi CLI
+    pulumi up
     export VAULT_ADDR=$(pulumi stack output vaultUrl)
     ```
-2. Initialize the Vault. Save the recovery key somewhere safe!!:
+3. Initialize the Vault. Save the recovery key somewhere safe!!:
    ```shell
    curl -s -X PUT \
      ${VAULT_ADDR}/v1/sys/init \
      -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
      --data @init.json
    ```
-3. Get the Vault health information:
+4. Get the Vault health information:
    ```shell
    curl -s -X GET \
      ${VAULT_ADDR}/v1/sys/health \
@@ -91,11 +91,11 @@ Otherwise, you can deploy this project using Pulumi CLI locally with just `Node`
    At this point you will need to **allow unauthorized access** on your service to continue with the examples or else
    always use `--header="Authorization=Bearer $(gcloud auth print-identity-token)"` with each `vault` command.
 
-4. Login with the root token received from the init step:
+5. Login with the root token received from the init step:
    ```shell
    vault login
    ```
-5. And try storing a secret:
+6. And try storing a secret:
    ```shell
    vault secrets enable -version=2 -path=secret kv
    vault policy write my-policy - << EOF
@@ -109,6 +109,6 @@ Otherwise, you can deploy this project using Pulumi CLI locally with just `Node`
    
 # Next Steps
 
-From this point you will probably want to set up a permanent domain name and restrict the access to the
-service to bolster security. But, you now have a working Hashicorp Vault service that, while not "highly
-available", should still be extremely reliable for small deployments.
+From this point you will probably want to restrict the access to the service to bolster security. But, you now have
+a working self-hosted but serverless Hashicorp Vault service that, while not "highly available", should still be
+extremely reliable for small deployments.

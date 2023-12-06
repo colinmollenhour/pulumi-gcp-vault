@@ -1,26 +1,26 @@
-import * as pulumi from "@pulumi/pulumi";
-import * as gcp from "@pulumi/gcp";
+import * as pulumi from "@pulumi/pulumi"
+import * as gcp from "@pulumi/gcp"
 
 // Get the project based on ID from config
 const config = new pulumi.Config()
 const vaultDomain = config.get('vaultDomain') // Optional
 const project = gcp.organizations.getProjectOutput({})
-const defaultServiceAccount = gcp.compute.getDefaultServiceAccountOutput({});
+const defaultServiceAccount = gcp.compute.getDefaultServiceAccountOutput({})
 
 // Create a GCS bucket to store Vault's data
 const storageBucket = new gcp.storage.Bucket("vault-data", {
     location: "US",
-});
+})
 
 // Create a KMS keyring and key for Vault's encryption keys
 const keyRing = new gcp.kms.KeyRing("vault-server", {
     location: "global",
-});
+})
 const kmsKey = new gcp.kms.CryptoKey("seal", {
     keyRing: keyRing.id,
     purpose: "ENCRYPT_DECRYPT",
     rotationPeriod: "100000s",
-});
+})
 
 // Allow the service account permissions for the KMS key
 const adminPolicy = gcp.organizations.getIAMPolicyOutput({
@@ -30,14 +30,14 @@ const adminPolicy = gcp.organizations.getIAMPolicyOutput({
             role: "roles/cloudkms.cryptoKeyEncrypterDecrypter",
         },
     ]),
-});
+})
 const cryptoKey = new gcp.kms.CryptoKeyIAMPolicy("cryptoKey", {
     cryptoKeyId: kmsKey.id,
     policyData: adminPolicy.policyData,
-});
+})
 
 // Docker image for Vault
-const image = "hashicorp/vault:1.15";
+const image = "hashicorp/vault:1.15"
 
 // Create a Cloud Run service running Vault
 const vault = new gcp.cloudrunv2.Service("vault", {
@@ -106,7 +106,7 @@ const vault = new gcp.cloudrunv2.Service("vault", {
     },
 }, {
     deleteBeforeReplace: true
-});
+})
 
 let _vaultUrl
 if (vaultDomain) {
@@ -117,7 +117,7 @@ if (vaultDomain) {
             namespace: pulumi.interpolate`${project.projectId}`
         },
         spec: {
-            routeName: vault.uri.apply(uri => uri.replace('https://', ''))
+            routeName: vault.id.apply(id => id.split('/').pop()+'')
         }
     })
     _vaultUrl = `https://${vaultDomain}`
